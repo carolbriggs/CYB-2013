@@ -4,91 +4,87 @@
 # CYB 2013
 
 def gs(men, women, pref):
-    # Step 1: Create a dictionary to track who each woman prefers more
     rank = {}
-    for woman in women:
-        rank[woman] = {}
-        for i in range(len(pref[woman])):
-            man = pref[woman][i]
-            rank[woman][man] = i  # Lower index means higher preference
+    for w in women:
+        rank[w] = {}
+        i = 1
+        for m in pref[w]:
+            rank[w][m]=i
+            i+=1
+    ## create a "pointer" to the next woman to propose
+    prefptr = {}
+    for m in men:
+        prefptr[m] = 0
 
-    # Step 2: Track which woman each man will propose to next
-    next_choice = {}
-    for man in men:
-        next_choice[man] = 0  # Start at the top of his list
+    freemen = set(men)    #initially all men and women are free
+    numpartners = len(men) 
+    S = {}           #build dictionary to store engagements 
 
-    # Step 3: Keep track of free men and current engagements
-    freemen = men[:]
-    engagements = {}  # woman → man
-
-    # Step 4: Repeat until all men are matched
+    #run the algorithm
     while freemen:
-        man = freemen.pop(0)  # Take the first free man
-        woman = pref[man][next_choice[man]]  # Get his next top choice
-        next_choice[man] += 1  # Move to the next woman for future proposals
-
-        if woman not in engagements:
-            # She's free, so they get engaged
-            engagements[woman] = man
+        m = freemen.pop()
+        #get the highest ranked woman that has not yet been proposed to
+        w = pref[m][prefptr[m]]
+        prefptr[m]+=1
+        if w not in S: S[w] = m
         else:
-            current = engagements[woman]
-            # Check if she prefers the new man over her current one
-            if rank[woman][man] < rank[woman][current]:
-                # She prefers the new man
-                engagements[woman] = man
-                freemen.append(current)  # The old fiancé becomes free again
+            mprime = S[w]
+            if rank[w][m] < rank[w][mprime]:
+                S[w] = m
+                freemen.add(mprime)
             else:
-                # She stays with her current match
-                freemen.append(man)
-
-    # Step 5: Flip the engagements to man → woman format
-    match = {}
-    for woman in engagements:
-        man = engagements[woman]
-        match[man] = woman
-
-    return match
+                freemen.add(m)
+    return S
 
 def gs_block(men, women, pref, blocked):
-    # Initialize all men and women as free
-    freemen = men[:]
-    engaged = {}
-    proposals = {man: [] for man in men}
+    """
+    Gale-Shapley algorithm, modified to exclude unacceptable matches.
+    
+    Inputs:
+        men (list): List of men's names.
+        women (list): List of women's names.
+        pref (dict): Dictionary mapping each person to their preference list.
+        blocked (list): List of (man, woman) tuples that are unacceptable matches.
+    
+    Output:
+        dict: Stable matches as a dictionary mapping men to women.
+    """
+    # Step 1: Build ranking dictionary for women
+    rank = {w: {m: i for i, m in enumerate(pref[w])} for w in women}
+  
+    # Step 2: Track which woman each man will propose to next
+    prefptr = {m: 0 for m in men}
 
-    # Create a quick lookup for blocked pairs
+    # Step 3: Track free men and current engagements
+    freemen = set(men)
+    S = {}  # woman → man
     blocked_set = set(blocked)
 
+    # Step 4: Run the matching loop
     while freemen:
-        man = freemen.pop(0)
-        man_pref = pref[man]
+        m = freemen.pop()
+        while prefptr[m] < len(pref[m]):
+            w = pref[m][prefptr[m]]
+            prefptr[m] += 1
 
-        # Propose to the next woman on his list who hasn't been proposed to yet
-        for woman in man_pref:
-            if woman in proposals[man] or (man, woman) in blocked_set:
+            # Skip blocked pairs
+            if (m, w) in blocked_set:
                 continue
 
-            proposals[man].append(woman)
-
-            if woman not in engaged:
-                # She's free, engage them
-                engaged[woman] = man
+            if w not in S:
+                S[w] = m
                 break
             else:
-                current_man = engaged[woman]
-                woman_pref = pref[woman]
-
-                # Check if she prefers this new man over her current engagement
-                if woman_pref.index(man) < woman_pref.index(current_man):
-                    # She prefers the new man
-                    engaged[woman] = man
-                    freemen.append(current_man)
+                mprime = S[w]
+                if rank[w][m] < rank[w][mprime]:
+                    S[w] = m
+                    freemen.add(mprime)
                     break
                 else:
-                    # She stays with her current partner
                     continue
 
-    # Convert engaged dict to man -> woman format
-    return {man: woman for woman, man in engaged.items()}
+    # Step 5: Convert woman → man to man → woman
+    return {w: m for w, m in S.items()}
 
 def gs_tie(men, women, preftie):
     # Flatten tied preferences into ordered lists for proposal tracking
@@ -152,9 +148,9 @@ if __name__=="__main__":
     #eng
     match = gs(themen,thewomen,thepref)
     print(match)
-    
-    #match_block = gs_block(themen,thewomen,thepref,blocked)
-   # print(match_block)
+
+    match_block = gs_block(themen,thewomen,thepref,blocked)
+    print(match_block)
 
     #match_tie = gs_tie(themen,thewomen,thepreftie)
    # print(match_tie)
